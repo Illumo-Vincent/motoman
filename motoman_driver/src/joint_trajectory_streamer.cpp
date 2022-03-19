@@ -426,6 +426,13 @@ namespace motoman
       return true;
     }
 
+    void MotomanJointTrajectoryStreamer::shutdown()
+    {
+      std_srvs::Trigger::Request req;
+      std_srvs::Trigger::Response res;
+      disableRobotCB(req, res);
+    }
+
     // override send_to_robot to provide controllerReady() and setTrajMode() calls
     bool MotomanJointTrajectoryStreamer::send_to_robot(const std::vector<SimpleMessage> &messages)
     {
@@ -560,6 +567,14 @@ namespace motoman
                                << " (#" << this->current_point_ << "): "
                                << MotomanMotionCtrl::getErrorString(reply_status.reply_));
               this->state_ = TransferStates::IDLE;
+
+              motoman_msgs::MotorosError error;
+              error.code = reply_status.reply_.getResult();
+              error.subcode = reply_status.reply_.getSubcode();
+              error.code_description = reply_status.reply_.getResultString();
+              error.subcode_description = reply_status.reply_.getSubcodeString();
+              motoros_error_pub_.publish(error);
+
               break;
             }
           }
@@ -568,12 +583,6 @@ namespace motoman
           ROS_ERROR("Joint trajectory streamer: unknown state");
           this->state_ = TransferStates::IDLE;
 
-          motoman_msgs::MotorosError error;
-          error.code = reply_status.reply_.getResult();
-          error.subcode = reply_status.reply_.getSubcode();
-          error.code_description = reply_status.reply_.getResultString();
-          error.subcode_description = reply_status.reply_.getSubcodeString();
-          motoros_error_pub_.publish(error);
           break;
         }
         // this does not unlock smpl_msg_conx_mutex_, but the mutex from JointTrajectoryStreamer
